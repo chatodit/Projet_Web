@@ -206,6 +206,87 @@ Disponible sur http://localhost:8000/admin/ — tous les modèles sont enregistr
 
 ---
 
+## Déploiement en production
+
+### Architecture déployée
+
+```
+Utilisateur
+    │
+    └── Netlify (Frontend React)
+              │
+              └── Railway (Backend Node.js/Express + SQLite)
+```
+
+| Service | URL |
+|---------|-----|
+| Frontend | https://your-site.netlify.app |
+| Backend API | https://eventhub-backend-production-eb7d.up.railway.app/api/ |
+
+---
+
+### Backend — Railway
+
+Le backend Node.js est déployé sur [Railway](https://railway.app) avec un volume persistant pour conserver la base SQLite entre les déploiements.
+
+**Déployer via Railway CLI :**
+
+```bash
+npm install -g @railway/cli
+railway login
+cd node-backend
+railway link          # Lier au projet Railway existant
+railway up --service eventhub-backend
+```
+
+**Variables d'environnement à définir sur Railway :**
+
+| Variable | Description |
+|----------|-------------|
+| `DB_PATH` | `/data/database.sqlite` |
+| `JWT_SECRET` | Clé secrète JWT (longue et aléatoire) |
+| `PORT` | `3000` |
+
+**Volume persistant :**
+- Mount path : `/data`
+- Sans volume, la base de données est perdue à chaque redéploiement.
+
+---
+
+### Frontend — Netlify
+
+Le frontend React est déployé sur [Netlify](https://netlify.com) depuis un fork du dépôt GitHub.
+
+**Configuration Netlify :**
+
+| Paramètre | Valeur |
+|-----------|--------|
+| Base directory | `frontend` |
+| Build command | `npm run build` |
+| Publish directory | `dist` |
+
+**Variable d'environnement à définir sur Netlify :**
+
+| Variable | Valeur |
+|----------|--------|
+| `VITE_API_URL` | `https://eventhub-backend-production-eb7d.up.railway.app/api/` |
+
+> La variable doit être définie **avant** le build — Vite l'intègre au moment de la compilation.
+
+Le fichier `frontend/netlify.toml` gère la redirection SPA (React Router) automatiquement.
+
+---
+
+### Comptes disponibles en production
+
+| Username | Rôle |
+|----------|------|
+| `admin` | admin |
+| `editor` | editor |
+| `viewer` | viewer |
+
+---
+
 ## Changer de backend (Django ↔ Node.js)
 
 Le frontend peut fonctionner avec les deux backends. Le seul fichier à modifier est `frontend/src/api/axios.js`, ligne `baseURL` :
