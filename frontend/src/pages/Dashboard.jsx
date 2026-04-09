@@ -10,9 +10,20 @@ const Dashboard = () => {
     const [editingEvent, setEditingEvent] = useState(null);
     const [editForm, setEditForm] = useState({ title: '', description: '', location: '', date: '', status: '' });
     const [participantsModal, setParticipantsModal] = useState(null); // { eventTitle, participants }
+    const [myRegistrations, setMyRegistrations] = useState({}); // { eventId: registration_id }
     const navigate = useNavigate();
     const canEdit = ['admin', 'editor'].includes(localStorage.getItem('role'));
     const isAdmin = localStorage.getItem('role') === 'admin';
+
+    const getErrorMessage = (err, fallback) => {
+        const data = err.response?.data;
+        if (!data) return fallback;
+        if (typeof data === 'string') return data;
+        if (data.detail) return data.detail;
+        const firstKey = Object.keys(data)[0];
+        if (firstKey) return `${firstKey} : ${Array.isArray(data[firstKey]) ? data[firstKey][0] : data[firstKey]}`;
+        return fallback;
+    };
 
     const fetchEvents = async (currentFilters) => {
         try {
@@ -24,7 +35,7 @@ const Dashboard = () => {
             if (f.date_to)   params.date_to   = f.date_to;
             const res = await api.get('events/', { params });
             setEvents(res.data.results || res.data);
-        } catch (err) { console.error(err); }
+        } catch (err) { alert(getErrorMessage(err, "Impossible de charger les événements.")); }
         finally { setLoading(false); }
     };
 
@@ -36,7 +47,7 @@ const Dashboard = () => {
             await api.post('events/', newEvent);
             setNewEvent({ title: '', description: '', location: '', date: '' });
             fetchEvents(filters);
-        } catch (err) { alert("Erreur lors de la création."); }
+        } catch (err) { alert(getErrorMessage(err, "Erreur lors de la création.")); }
     };
 
     const handleEditOpen = (event) => {
@@ -58,7 +69,7 @@ const Dashboard = () => {
             await api.put(`events/${editingEvent.id}/`, editForm);
             setEditingEvent(null);
             fetchEvents(filters);
-        } catch (err) { alert("Erreur lors de la modification."); }
+        } catch (err) { alert(getErrorMessage(err, "Erreur lors de la modification.")); }
     };
 
     const handleDelete = async (id) => {
@@ -66,7 +77,7 @@ const Dashboard = () => {
             try {
                 await api.delete(`events/${id}/`);
                 fetchEvents(filters);
-            } catch (err) { alert("Action non autorisée."); }
+            } catch (err) { alert(getErrorMessage(err, "Erreur lors de la suppression.")); }
         }
     };
 
@@ -96,7 +107,31 @@ const Dashboard = () => {
                 ...prev,
                 participants: prev.participants.filter(p => p.registration_id !== registrationId),
             }));
-        } catch (err) { alert("Erreur lors de la suppression."); }
+        } catch (err) { alert(getErrorMessage(err, "Erreur lors de la suppression.")); }
+    };
+
+    const handleRegister = async (event) => {
+        if (!window.confirm(`S'inscrire à "${event.title}" ?`)) return;
+        try {
+            const res = await api.post(`events/${event.id}/register/`);
+            setMyRegistrations(prev => ({ ...prev, [event.id]: res.data.registration_id }));
+            fetchEvents(filters);
+        } catch (err) {
+            alert(getErrorMessage(err, "Erreur lors de l'inscription."));
+        }
+    };
+
+    const handleUnregister = async (event) => {
+        if (!window.confirm(`Se désinscrire de "${event.title}" ?`)) return;
+        try {
+            await api.delete(`events/${event.id}/unregister/`, {
+                data: { registration_id: myRegistrations[event.id] }
+            });
+            setMyRegistrations(prev => { const n = {...prev}; delete n[event.id]; return n; });
+            fetchEvents(filters);
+        } catch (err) {
+            alert(getErrorMessage(err, "Erreur lors de la désinscription."));
+        }
     };
 
     const logout = () => {
@@ -192,6 +227,11 @@ const Dashboard = () => {
                                             Voir les inscrits
                                         </button>
                                     )}
+                                    {!canEdit && event.status !== 'cancelled' && (
+                                        myRegistrations[event.id]
+                                            ? <button onClick={() => handleUnregister(event)} className="dash-unregister-btn">Se désinscrire</button>
+                                            : <button onClick={() => handleRegister(event)} className="dash-register-btn">S'inscrire</button>
+                                    )}
                                 </div>
                                 {canEdit && <button onClick={() => handleEditOpen(event)} className="dash-edit-btn">✏️</button>}
                                 {canEdit && <button onClick={() => handleDelete(event.id)} className="dash-delete-btn">🗑️</button>}
@@ -277,7 +317,7 @@ const Dashboard = () => {
                 </div>
             </div>
         )}
-        </>
+</>
     );
 };
 

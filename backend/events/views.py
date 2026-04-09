@@ -1,6 +1,10 @@
 from django.db.models import Count
+from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import generics, filters
+from rest_framework import generics, filters, status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from accounts.permissions import IsAdminOrEditor
 from .filters import EventFilter
@@ -10,6 +14,7 @@ from .serializers import (
     EventListSerializer,
     ParticipantSerializer,
     RegistrationSerializer,
+
 )
 
 
@@ -111,6 +116,72 @@ class RegistrationDetailView(generics.RetrieveDestroyAPIView):
     queryset = Registration.objects.select_related("event", "participant")
     serializer_class = RegistrationSerializer
     permission_classes = [IsAdminOrEditor]
+
+
+# ──────────────────────────────────────────────
+# Self-registration (viewer)
+# ──────────────────────────────────────────────
+
+class EventRegisterView(APIView):
+    """
+    POST /api/events/<id>/register/
+    Inscrit l'utilisateur connecté à l'événement en utilisant les données de son compte.
+    Crée le Participant si l'email n'existe pas encore.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        event = get_object_or_404(Event, pk=pk)
+
+        if event.status == Event.Status.CANCELLED:
+            return Response(
+                {"detail": "Impossible de s'inscrire à un événement annulé."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = request.user
+        participant, _ = Participant.objects.get_or_create(
+            email=user.email,
+            defaults={
+                "first_name": user.first_name or user.username,
+                "last_name":  user.last_name,
+                "phone":      "",
+            },
+        )
+
+        if Registration.objects.filter(event=event, participant=participant).exists():
+            return Response(
+                {"detail": "Vous êtes déjà inscrit à cet événement."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        reg = Registration.objects.create(event=event, participant=participant)
+        return Response(
+            {"registration_id": reg.id, "message": "Inscription confirmée."},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class EventUnregisterView(APIView):
+    """
+    DELETE /api/events/<id>/unregister/
+    Permet à un utilisateur authentifié de se désinscrire d'un événement.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        event = get_object_or_404(Event, pk=pk)
+
+        registration_id = request.data.get("registration_id")
+        if not registration_id:
+            return Response(
+                {"detail": "registration_id requis."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        reg = get_object_or_404(Registration, pk=registration_id, event=event)
+        reg.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 # ──────────────────────────────────────────────
