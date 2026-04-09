@@ -25,6 +25,13 @@ const Dashboard = () => {
         return fallback;
     };
 
+    const fetchMyRegistrations = async () => {
+        try {
+            const res = await api.get('events/me/registrations');
+            setMyRegistrations(res.data);
+        } catch (err) { /* silencieux */ }
+    };
+
     const fetchEvents = async (currentFilters) => {
         try {
             const f = currentFilters || filters;
@@ -39,6 +46,7 @@ const Dashboard = () => {
         finally { setLoading(false); }
     };
 
+    useEffect(() => { fetchMyRegistrations(); }, []);
     useEffect(() => { fetchEvents(filters); }, [filters]);
 
     const handleCreate = async (e) => {
@@ -114,7 +122,7 @@ const Dashboard = () => {
         if (!window.confirm(`S'inscrire à "${event.title}" ?`)) return;
         try {
             const res = await api.post(`events/${event.id}/register/`);
-            setMyRegistrations(prev => ({ ...prev, [event.id]: res.data.registration_id }));
+            setMyRegistrations(prev => ({ ...prev, [event.id]: res.data.id }));
             fetchEvents(filters);
         } catch (err) {
             alert(getErrorMessage(err, "Erreur lors de l'inscription."));

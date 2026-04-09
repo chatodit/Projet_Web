@@ -1,8 +1,9 @@
 const router = require('express').Router();
-const { list, create, getOne, update, remove, register, unregister } = require('../controllers/eventController');
+const { list, create, getOne, update, remove, register, unregister, myRegistrations } = require('../controllers/eventController');
 const { authenticate } = require('../middleware/auth');
 const { requireRole } = require('../middleware/roles');
 
+router.get('/me/registrations', authenticate, myRegistrations);
 router.get('/', authenticate, list);
 router.post('/', authenticate, requireRole('admin', 'editor'), create);
 router.get('/:id', authenticate, getOne);

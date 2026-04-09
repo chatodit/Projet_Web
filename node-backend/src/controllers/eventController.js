@@ -143,4 +143,18 @@ async function unregister(req, res, next) {
   }
 }
 
-module.exports = { list, create, getOne, update, remove, register, unregister };
+async function myRegistrations(req, res, next) {
+  try {
+    const user = await User.findByPk(req.user.id);
+    const participant = await Participant.findOne({ where: { email: user.email } });
+    if (!participant) return res.json({});
+    const regs = await Registration.findAll({ where: { participant_id: participant.id } });
+    const map = {};
+    regs.forEach(r => { map[r.event_id] = r.id; });
+    return res.json(map);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { list, create, getOne, update, remove, register, unregister, myRegistrations };
