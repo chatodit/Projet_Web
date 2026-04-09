@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'http://127.0.0.1:8000/api/', 
+    baseURL: 'http://localhost:3000/api/',
 });
 // Ce code intercepte chaque requête pour y glisser le Token si l'utilisateur est connecté
 api.interceptors.request.use((config) => {

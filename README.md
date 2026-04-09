@@ -203,3 +203,26 @@ La commande `python manage.py seed` crée :
 ## Interface d'administration Django
 
 Disponible sur http://localhost:8000/admin/ — tous les modèles sont enregistrés avec des filtres et des recherches configurés.
+
+---
+
+## Changer de backend (Django ↔ Node.js)
+
+Le frontend peut fonctionner avec les deux backends. Le seul fichier à modifier est `frontend/src/api/axios.js`, ligne `baseURL` :
+
+**Connecter au backend Django :**
+```js
+baseURL: 'http://127.0.0.1:8000/api/',
+```
+
+**Connecter au backend Node.js :**
+```js
+baseURL: 'http://localhost:3000/api/',
+```
+
+Pour lancer le backend Node.js :
+```bash
+cd node-backend
+npm install
+npm run dev
+```
